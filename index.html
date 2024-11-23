@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>摄像头拍照与图片上传</title>
+    <style>
+        #video {
+            border: 1px solid black;
+            width: 100%;
+            max-width: 600px;
+            height: auto;
+        }
+        #canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>摄像头拍照与图片上传</h1>
+    <video id="video" autoplay></video>
+    <button id="capture">拍摄照片</button>
+    <canvas id="canvas"></canvas>
+    <h2>上传图片</h2>
+    <input type="file" id="fileInput" accept="image/*">
+    <button id="upload">上传图片</button>
+    <h2>OCR 结果</h2>
+    <pre id="ocrResult"></pre>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ocrResult = document.getElementById('ocrResult');
+        const captureButton = document.getElementById('capture');
+        const uploadButton = document.getElementById('upload');
+        const fileInput = document.getElementById('fileInput');
+
+        // 打开摄像头
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("打开摄像头失败:", err);
+            });
+
+        // 拍摄照片
+        captureButton.addEventListener('click', () => {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/png');
+            sendImage(imageData);
+        });
+
+        // 上传图片
+        uploadButton.addEventListener('click', () => {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    sendImage(event.target.result);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert("请先选择一张图片");
+            }
+        });
+
+        function sendImage(imageData) {
+            fetch('http://10.11.142.214:1000/ocr', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ image: imageData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                ocrResult.textContent = JSON.stringify(data.results, null, 2);
+            })
+            .catch(err => {
+                console.error("发送图片失败:", err);
+                ocrResult.textContent = "发送图片失败，请检查控制台。";
+            });
+        }
+    </script>
+</body>
+</html>
